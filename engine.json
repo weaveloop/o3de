@@ -108,6 +108,7 @@
         "SceneProcessing"
     ],
     "projects": [
+        "Projects/NekoFarm",
         "AutomatedTesting"
     ],
     "templates": [
