@@ -129,7 +129,21 @@ void DirectionalShadowCalculator::GetShadowCascadeRange(float3 shadowCoords[View
             {
                 ++index;
             }
-            maxShadowCascade = index;
+            // If the sample lies beyond the far plane of every remaining cascade the loop above ends with
+            // index == m_cascadeCount, and the caller would sample a non-existent slice of the shadowmap array.
+            // Out of range array slices are not clamped on every platform (Metal returns 0), which IsShadowed()
+            // treats as "in shadow" and produces large black bands on open ground at low sun angles. Such
+            // samples have no shadow data at all, so treat them as not shadowed like any other sample that
+            // falls outside every cascade.
+            if (index >= m_cascadeCount)
+            {
+                minShadowCascade = -1;
+                maxShadowCascade = -1;
+            }
+            else
+            {
+                maxShadowCascade = index;
+            }
             break;
         }
     }
