@@ -82,6 +82,11 @@ namespace AZ
             //! Go through all the heaps and call UseHeap on them to make them resident for the upcoming pass.
             void MakeHeapsResident(MTLRenderStages renderStages);
 
+            //! Call UseResource on the resources cached since the last call, making them resident for the rest of
+            //! the encoder. Must happen before the draw/dispatch that accesses them, as the driver derives the
+            //! dependencies of the encoder from it.
+            void MakeUntrackedResourcesResident();
+
             template <typename T>
             T GetEncoder() const
             {
@@ -95,7 +100,7 @@ namespace AZ
             RHI::MultisampleState       m_renderPassMultiSampleState;
             
             // Data structures to cache untracked resources for Graphics and Compute Passes.
-            // At the end of the pass we call UseResource on them in a batch to tell the
+            // Before the draw/dispatch that uses them we call UseResource on them in a batch to tell the
             // driver to ensure they are resident when needed.
             ArgumentBuffer::ResourcesPerStageForGraphics m_untrackedResourcesGfxRead;
             ArgumentBuffer::ResourcesPerStageForGraphics m_untrackedResourcesGfxReadWrite;

@@ -59,70 +59,82 @@ namespace AZ
             m_mtlCommandBuffer = nil;
         }
 
+        void CommandListBase::MakeUntrackedResourcesResident()
+        {
+            if (!m_encoder)
+            {
+                return;
+            }
+
+            //Call UseResource on all resources cached for Compute work
+            id<MTLRenderCommandEncoder> renderEncoder = GetEncoder<id<MTLRenderCommandEncoder>>();
+            id<MTLComputeCommandEncoder> computeEncoder = GetEncoder<id<MTLComputeCommandEncoder>>();
+
+            if(m_untrackedResourcesComputeRead.size() > 0)
+            {
+                AZStd::vector<id <MTLResource>> resourcesToProcessVec(m_untrackedResourcesComputeRead.begin(),
+                                                                      m_untrackedResourcesComputeRead.end());
+
+                [computeEncoder useResources:&resourcesToProcessVec[0]
+                                       count:m_untrackedResourcesComputeRead.size()
+                                       usage:MTLResourceUsageRead];
+            }
+            if(m_untrackedResourcesComputeReadWrite.size() > 0)
+            {
+                AZStd::vector<id <MTLResource>> resourcesToProcessVec(m_untrackedResourcesComputeReadWrite.begin(),
+                                                                      m_untrackedResourcesComputeReadWrite.end());
+
+                [computeEncoder useResources:&resourcesToProcessVec[0]
+                                       count:m_untrackedResourcesComputeReadWrite.size()
+                                       usage:MTLResourceUsageRead|MTLResourceUsageWrite];
+            }
+
+            //Call UseResource on all resources cached for Graphics work
+            for(int i = 0; i < RHI::ShaderStageGraphicsCount; i++)
+            {
+                if(i != static_cast<int>(RHI::ShaderStage::Vertex) && i != static_cast<int>(RHI::ShaderStage::Fragment))
+                {
+                    continue;
+                }
+
+                MTLRenderStages mtlRenderStage = i==static_cast<int>(RHI::ShaderStage::Vertex)?
+                                                        MTLRenderStageVertex:MTLRenderStageFragment;
+
+                if(m_untrackedResourcesGfxRead[i].size() > 0)
+                {
+                    AZStd::vector<id <MTLResource>> resourcesToProcessVec(m_untrackedResourcesGfxRead[i].begin(), m_untrackedResourcesGfxRead[i].end());
+
+                    [renderEncoder useResources:&resourcesToProcessVec[0]
+                                          count:m_untrackedResourcesGfxRead[i].size()
+                                          usage:MTLResourceUsageRead
+                                         stages:mtlRenderStage];
+                }
+
+                if(m_untrackedResourcesGfxReadWrite[i].size() > 0)
+                {
+                    AZStd::vector<id <MTLResource>> resourcesToProcessVec(m_untrackedResourcesGfxReadWrite[i].begin(), m_untrackedResourcesGfxReadWrite[i].end());
+
+                    [renderEncoder useResources:&resourcesToProcessVec[0]
+                                          count:m_untrackedResourcesGfxReadWrite[i].size()
+                                          usage:MTLResourceUsageRead|MTLResourceUsageWrite
+                                         stages:mtlRenderStage];
+                }
+
+                m_untrackedResourcesGfxRead[i].clear();
+                m_untrackedResourcesGfxReadWrite[i].clear();
+            }
+
+            m_untrackedResourcesComputeRead.clear();
+            m_untrackedResourcesComputeReadWrite.clear();
+        }
+
         void CommandListBase::FlushEncoder()
         {
             if (m_encoder)
             {
-                //Call UseResource on all resources cached for Compute work
-                id<MTLRenderCommandEncoder> renderEncoder = GetEncoder<id<MTLRenderCommandEncoder>>();
-                id<MTLComputeCommandEncoder> computeEncoder = GetEncoder<id<MTLComputeCommandEncoder>>();
-
-                if(m_untrackedResourcesComputeRead.size() > 0)
-                {
-                    AZStd::vector<id <MTLResource>> resourcesToProcessVec(m_untrackedResourcesComputeRead.begin(),
-                                                                          m_untrackedResourcesComputeRead.end());
-
-                    [computeEncoder useResources:&resourcesToProcessVec[0]
-                                           count:m_untrackedResourcesComputeRead.size()
-                                           usage:MTLResourceUsageRead];
-                }
-                if(m_untrackedResourcesComputeReadWrite.size() > 0)
-                {
-                    AZStd::vector<id <MTLResource>> resourcesToProcessVec(m_untrackedResourcesComputeReadWrite.begin(),
-                                                                          m_untrackedResourcesComputeReadWrite.end());
-
-                    [computeEncoder useResources:&resourcesToProcessVec[0]
-                                           count:m_untrackedResourcesComputeReadWrite.size()
-                                           usage:MTLResourceUsageRead|MTLResourceUsageWrite];
-                }
-                
-                //Call UseResource on all resources cached for Graphics work
-                for(int i = 0; i < RHI::ShaderStageGraphicsCount; i++)
-                {
-                    if(i != static_cast<int>(RHI::ShaderStage::Vertex) && i != static_cast<int>(RHI::ShaderStage::Fragment))
-                    {
-                        continue;
-                    }
-                    
-                    MTLRenderStages mtlRenderStage = i==static_cast<int>(RHI::ShaderStage::Vertex)?
-                                                            MTLRenderStageVertex:MTLRenderStageFragment;
-                    
-                    if(m_untrackedResourcesGfxRead[i].size() > 0)
-                    {
-                        AZStd::vector<id <MTLResource>> resourcesToProcessVec(m_untrackedResourcesGfxRead[i].begin(), m_untrackedResourcesGfxRead[i].end());
-
-                        [renderEncoder useResources:&resourcesToProcessVec[0]
-                                              count:m_untrackedResourcesGfxRead[i].size()
-                                              usage:MTLResourceUsageRead
-                                             stages:mtlRenderStage];
-                    }
-                    
-                    if(m_untrackedResourcesGfxReadWrite[i].size() > 0)
-                    {
-                        AZStd::vector<id <MTLResource>> resourcesToProcessVec(m_untrackedResourcesGfxReadWrite[i].begin(), m_untrackedResourcesGfxReadWrite[i].end());
-
-                        [renderEncoder useResources:&resourcesToProcessVec[0]
-                                              count:m_untrackedResourcesGfxReadWrite[i].size()
-                                              usage:MTLResourceUsageRead|MTLResourceUsageWrite
-                                             stages:mtlRenderStage];
-                    }
-
-                    m_untrackedResourcesGfxRead[i].clear();
-                    m_untrackedResourcesGfxReadWrite[i].clear();
-                }
-
-                m_untrackedResourcesComputeRead.clear();
-                m_untrackedResourcesComputeReadWrite.clear();
+                //Anything still pending was collected by work that did not reach a draw/dispatch, declare it anyway
+                //so the encoder is consistent.
+                MakeUntrackedResourcesResident();
 
                 [m_encoder endEncoding];
                 [m_encoder release];

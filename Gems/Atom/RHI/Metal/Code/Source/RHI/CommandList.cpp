@@ -192,6 +192,11 @@ namespace AZ
                 AZ_Assert(false, "Skip draw call as resource binding was unsuccessfully.");
                 return;
             }
+            //Declare the resources reached through argument buffers before the dispatch, the driver builds the
+            //dependencies of this encoder from it and would otherwise not know that this dispatch reads the
+            //output of a previous scope (a compute pass sampling a render target, for example).
+            MakeUntrackedResourcesResident();
+
             const RHI::DispatchDirect& arguments = dispatchItem.m_arguments.m_direct;
             MTLSize threadsPerGroup = {arguments.m_threadsPerGroupX, arguments.m_threadsPerGroupY, arguments.m_threadsPerGroupZ};
             MTLSize numThreadGroup = {arguments.GetNumberOfGroupsX(), arguments.GetNumberOfGroupsY(), arguments.GetNumberOfGroupsZ()};
@@ -620,6 +625,9 @@ namespace AZ
                 AZ_Assert(false, "Skip draw call as resource binding was unsuccessfully.");
                 return;
             }
+
+            //See the comment in the dispatch path, the resources have to be declared before the draw that uses them.
+            MakeUntrackedResourcesResident();
 
             SetStreamBuffers(*drawItem.m_geometryView, drawItem.m_streamIndices);
             SetStencilRef(drawItem.m_stencilRef);
